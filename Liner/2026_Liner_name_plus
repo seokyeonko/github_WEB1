@@ -1,0 +1,110 @@
+"""
+매뉴얼
+이 스크립트는 레퍼런스 JSON 파일을 다루기 위한 유틸리티입니다.
+
+주요 기능:
+- 파일명에 포함된 숫자를 증가시켜 새로운 파일명을 생성합니다. (예: reference-001.json → reference-101.json)
+- 레퍼런스 ID 문자열의 숫자를 증가시킵니다. (예: reference-001 → reference-101)
+- JSON 파일을 읽어 위의 규칙에 따라 파일명을 바꾸고 지정된 디렉터리로 복사합니다.
+
+사용 방법:
+1. `increment_reference_name(name, offset)` : 파일명 변환
+2. `increment_reference_id(ref_id, offset)` : ID 변환
+3. `process_json_file(src_path, dst_dir, offset)` : JSON 파일 처리
+
+예시:
+```python
+from pathlib import Path
+src = Path('data/reference-001.json')
+	dst = Path('output/')
+process_json_file(src, dst, offset=100)
+```
+"""
+
+import json
+import os
+import re
+
+
+def increment_reference_name(name: str, offset: int = 100) -> str:
+    match = re.match(r"^(reference-)(\d+)(\.json)?$", name)
+    if not match:
+        return ""
+    prefix, digits, extension = match.group(1), match.group(2), match.group(3) or ".json"
+    number = int(digits)
+    new_number = number + offset
+    new_digits = str(new_number).zfill(len(digits))
+    return f"{prefix}{new_digits}{extension}"
+
+
+def increment_reference_id(ref_id: str, offset: int = 100) -> str:
+    match = re.match(r"^(reference-)(\d+)$", ref_id)
+    if not match:
+        return ""
+    prefix, digits = match.group(1), match.group(2)
+    number = int(digits)
+    new_number = number + offset
+    new_digits = str(new_number).zfill(len(digits))
+    return f"{prefix}{new_digits}"
+
+
+def process_json_file(src_path: str, dst_dir: str, offset: int = 100) -> None:
+    file_name = os.path.basename(src_path)
+    new_file_name = increment_reference_name(file_name, offset)
+    if not new_file_name:
+        print(f"Skipping non-matching file: {file_name}")
+        return
+
+    with open(src_path, "r", encoding="utf-8") as f:
+        try:
+            data = json.load(f)
+        except json.JSONDecodeError as e:
+            print(f"JSON parse failed for {file_name}: {e}")
+            return
+
+    old_id = None
+    if isinstance(data, dict) and "id" in data and isinstance(data["id"], str):
+        old_id = data["id"]
+        new_id = increment_reference_id(old_id, offset)
+        if not new_id:
+            print(f"Skipping file because id does not match pattern: {file_name} -> {old_id}")
+            return
+        data["id"] = new_id
+    else:
+        print(f"Skipping file because no valid top-level id field found: {file_name}")
+        return
+
+    output_path = os.path.join(dst_dir, new_file_name)
+    with open(output_path, "w", encoding="utf-8") as f:
+        json.dump(data, f, ensure_ascii=False, indent=2)
+        f.write("\n")
+
+    print(f"Saved: {output_path}")
+
+
+def main() -> None:
+    src_dir = input("변경할 JSON 파일이 있는 폴더 경로를 입력하세요: ").strip()
+    if not src_dir:
+        print("폴더 경로를 입력해야 합니다.")
+        return
+
+    if not os.path.isdir(src_dir):
+        print(f"유효한 폴더가 아닙니다: {src_dir}")
+        return
+
+    output_dir = os.path.join(src_dir, "output")
+    os.makedirs(output_dir, exist_ok=True)
+
+    json_files = [f for f in os.listdir(src_dir) if f.lower().endswith(".json") and os.path.isfile(os.path.join(src_dir, f))]
+    if not json_files:
+        print(f"폴더에 JSON 파일이 없습니다: {src_dir}")
+        return
+
+    for json_file in sorted(json_files):
+        process_json_file(os.path.join(src_dir, json_file), output_dir)
+
+    print("모든 처리 완료.")
+
+
+if __name__ == "__main__":
+    main()
