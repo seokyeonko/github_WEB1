@@ -1,0 +1,29 @@
+# Python
+venv/
+env/
+.venv/
+__pycache__/
+*.pyc
+*.pyo
+*.so
+.Python
+
+# Node.js
+node_modules/
+npm-debug.log
+.env.local
+.env.*.local
+
+# Django
+db.sqlite3
+*.log
+
+# IDE
+.vscode/
+.idea/
+.DS_Store
+
+# Environment
+.env
+*.key
+*.pem
